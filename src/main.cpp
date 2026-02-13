@@ -314,13 +314,10 @@ String buildAPRS() {
 
 void sendAPRS() {
   
-  Serial.println("--- DEBUG APRS START ---");
-  // if(!config.beaconEnabled) return; //
+  
+  if(!config.beaconEnabled) return;
 
   String pkt = buildAPRS();
-
-  Serial.print("Pacchetto generato: ");
-  Serial.println(pkt);
 
   LoRa.beginPacket();
   LoRa.write('<');
@@ -343,8 +340,6 @@ void sendAPRS() {
   display.printf("H: %.1f %%\n", H);
   display.printf("P: %.1f hPa\n", P);
   display.display();
-  
-  Serial.println("--- DEBUG APRS END ---");
   
 }
 
@@ -484,11 +479,6 @@ void setup() {
   initLoRa();
   detectSensor();
   readSensors();
-
-  // --- TEST IMMEDIATO ---
-  Serial.println("Eseguo invio forzato iniziale...");
-  sendAPRS(); 
-  // ----------------------
 
   lastSensorTime = millis();
 
@@ -654,3 +644,4 @@ if (DIGI_ENABLED) {
 }
 
 }
+
