@@ -12,15 +12,15 @@
 // DEFAULT USER SETTINGS (modificabili via Web / NVS)
 // ======================================================
 
-#define DEFAULT_CALLSIGN     "IU1VDW"
+#define DEFAULT_CALLSIGN     "NOCALL"
 #define DEFAULT_SSID_M       13
-#define DEFAULT_LAT          44.7254
-#define DEFAULT_LON          8.02167
+#define DEFAULT_LAT          0.00000
+#define DEFAULT_LON          0.00000
 #define DEFAULT_BEACON_ON    true
 #define DEFAULT_INTERVAL_MIN 20   // invio APRS ogni 20 minuti
 
-#define DEFAULT_WIFI_SSID    "Network di Andrea"
-#define DEFAULT_WIFI_PWD     "Lucia2002"
+#define DEFAULT_WIFI_SSID    "WIFI"
+#define DEFAULT_WIFI_PWD     "PASSWORD WIFI"
 
 // ======================================================
 // LORA TTGO T3 v1.6.1
@@ -85,3 +85,4 @@
 // ======================================================
 
 #define WEBSERVER_PORT 80
+
