@@ -13,6 +13,7 @@
 #include <Adafruit_AHTX0.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_BMP280.h>
+#include <Adafruit_SSD1306.h>
 
 #include "config.h"
 #include "website.h"
@@ -59,6 +60,18 @@ unsigned long wifiStartTime = 0;
 
 AsyncWebServer server(WEBSERVER_PORT);
 Preferences prefs;
+
+// ================= DISPLAY =================
+
+Adafruit_SSD1306 display(OLED_WIDTH, OLED_HEIGHT, &Wire, OLED_RST);
+bool displayReady = false;
+
+// Display state (rendered by updateDisplay in loop)
+String dispLine1 = "";
+String dispLine2 = "";
+String dispLine3 = "";
+String dispLine4 = "";
+bool dispNeedsUpdate = false;
 
 // ================= CONFIG STRUCT =================
 
@@ -197,6 +210,76 @@ void readSensors() {
   }
 }
 
+// ================= DISPLAY FUNCTIONS =================
+
+void initDisplay() {
+  pinMode(OLED_RST, OUTPUT);
+  digitalWrite(OLED_RST, LOW);
+  delay(50);
+  digitalWrite(OLED_RST, HIGH);
+  delay(50);
+
+  if (display.begin(SSD1306_SWITCHCAPVCC, DISPLAY_I2C_ADDR)) {
+    displayReady = true;
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.display();
+  } else {
+    displayReady = false;
+    Serial.println("OLED init FAIL");
+  }
+}
+
+void setDisplayContent(String l1, String l2, String l3, String l4) {
+  dispLine1 = l1;
+  dispLine2 = l2;
+  dispLine3 = l3;
+  dispLine4 = l4;
+  dispNeedsUpdate = true;
+}
+
+void updateDisplay() {
+  if (!displayReady || !dispNeedsUpdate)
+    return;
+  dispNeedsUpdate = false;
+
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println(dispLine1);
+  display.setCursor(0, 16);
+  display.println(dispLine2);
+  display.setCursor(0, 32);
+  display.println(dispLine3);
+  display.setCursor(0, 48);
+  display.println(dispLine4);
+  display.display();
+}
+
+void showSplash() {
+  String sensorStr;
+  switch (activeSensor) {
+  case SENSOR_BME680:
+    sensorStr = "BME680 OK";
+    break;
+  case SENSOR_BME280:
+    sensorStr = "BME280 OK";
+    break;
+  case SENSOR_BMP_AHT:
+    sensorStr = "BMP+AHT OK";
+    break;
+  default:
+    sensorStr = "NO SENSOR";
+    break;
+  }
+
+  setDisplayContent("LoRa APRS WX PRO",
+                    "v" + String(RELEASE_VERSION) + "  " + String(BUILD_DATE),
+                    "Sensor: " + sensorStr, "");
+  updateDisplay();
+}
+
 // ================= LORA =================
 
 void initLoRa() {
@@ -323,13 +406,16 @@ void sendAPRS() {
   aprsPacketCounter++;
 
   String pkt;
+  String txType;
 
   // Ogni 2 pacchetti, invia telemetria invece di beacon standard
   if (aprsPacketCounter % 2 == 0) {
     pkt = buildAPRSTelemetry();
+    txType = "TELEMETRY";
     Serial.println("TX APRS TELEMETRY");
   } else {
     pkt = buildAPRS();
+    txType = "BEACON";
     Serial.println("TX APRS BEACON");
   }
 
@@ -338,9 +424,18 @@ void sendAPRS() {
   LoRa.write(0xFF);
   LoRa.write(0x01);
   LoRa.print(pkt);
-  LoRa.endPacket();
+  int txResult = LoRa.endPacket();
 
   lastAprsTime = millis();
+
+  String callsignFull = config.callsign + "-" + String(config.ssid);
+  String statusStr =
+      (txResult == 1) ? "TX " + txType + " OK" : "TX " + txType + " FAIL";
+  String rssiStr = "RSSI: " + String(LoRa.packetRssi()) + " dBm";
+  String infoStr =
+      "Up:" + String(millis() / 1000) + "s " + String(VBAT, 1) + "V";
+
+  setDisplayContent(callsignFull, statusStr, rssiStr, infoStr);
 
   Serial.println("APRS: " + pkt);
 }
@@ -481,8 +576,10 @@ void setup() {
   Serial.begin(115200);
 
   loadConfig();
-  Wire.begin();
+  Wire.begin(OLED_SDA, OLED_SCL);
+  initDisplay();
   detectSensor();
+  showSplash();
   initLoRa();
   readSensors();
 
@@ -554,6 +651,9 @@ void loop() {
       Serial.println("Sveglia!");
     }
   }
+
+  // Aggiornamento display
+  updateDisplay();
 
   // Piccolo delay per stabilità del sistema (RTOS)
   delay(10);
