@@ -1,0 +1,18 @@
+CompileFlags:
+  Remove:
+    - -mlongcalls
+    - -fno-tree-switch-conversion
+    - -fstrict-volatile-bitfields
+    - -fno-jump-tables
+    - -freorder-blocks
+    - -Wno-frame-address
+    - -Wno-error=unused-but-set-variable
+  Add:
+    - -Wno-unknown-warning-option
+    - -Wno-missing-prototypes
+  Compiler: /home/rick/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-g++
+
+Diagnostics:
+  UnusedIncludes: None
+  Suppress:
+    - "-Wunknown-warning-option"

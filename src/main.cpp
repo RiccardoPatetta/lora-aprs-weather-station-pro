@@ -1,22 +1,21 @@
 #include <Arduino.h>
-#include <Wire.h>
-#include <SPI.h>
-#include <LoRa.h>
-#include <WiFi.h>
-#include <ESPAsyncWebServer.h>
-#include <Preferences.h>
 #include <ArduinoJson.h>
+#include <ESPAsyncWebServer.h>
+#include <LoRa.h>
+#include <Preferences.h>
+#include <SPI.h>
+#include <WiFi.h>
+#include <Wire.h>
 
-#include <bsec2.h>
 #include "bsec_config.h"
+#include <bsec2.h>
 
+#include <Adafruit_AHTX0.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_BMP280.h>
-#include <Adafruit_AHTX0.h>
 
 #include "config.h"
 #include "website.h"
-
 
 // ================= GLOBALI SENSORI =================
 
@@ -26,36 +25,35 @@ Adafruit_BMP280 bmp280;
 Adafruit_AHTX0 aht;
 
 bsec_virtual_sensor_t bsecVirtualSensorList[] = {
-  BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE,
-  BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY,
-  BSEC_OUTPUT_RAW_PRESSURE,
-  BSEC_OUTPUT_IAQ,
-  BSEC_OUTPUT_CO2_EQUIVALENT,
-  BSEC_OUTPUT_BREATH_VOC_EQUIVALENT,
-  BSEC_OUTPUT_RAW_GAS
-};
+    BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE,
+    BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY,
+    BSEC_OUTPUT_RAW_PRESSURE,
+    BSEC_OUTPUT_IAQ,
+    BSEC_OUTPUT_CO2_EQUIVALENT,
+    BSEC_OUTPUT_BREATH_VOC_EQUIVALENT,
+    BSEC_OUTPUT_RAW_GAS};
 
 // ================= DATI =================
 
-float T=0,H=0,P=0;
-float IAQ=0,CO2=0,VOC=0,GAS=0;
-float VBAT=0;
+float T = 0, H = 0, P = 0;
+float IAQ = 0, CO2 = 0, VOC = 0, GAS = 0;
+float VBAT = 0;
 
 // ================= DATI TELEMETRIA APRS =================
 
-float windDir = 0;      // 0-360 gradi
-float windSpeed = 0;    // km/h media
-float windGust = 0;     // km/h raffica
+float windDir = 0;   // 0-360 gradi
+float windSpeed = 0; // km/h media
+float windGust = 0;  // km/h raffica
 
-unsigned long lastSensorTime=0;
-unsigned long lastAprsTime=0;
+unsigned long lastSensorTime = 0;
+unsigned long lastAprsTime = 0;
 
 // ================= APRS TELEMETRY COUNTER =================
 
 unsigned int aprsPacketCounter = 0;
 
-bool wifiActive=false;
-unsigned long wifiStartTime=0;
+bool wifiActive = false;
+unsigned long wifiStartTime = 0;
 
 // ================= WEB =================
 
@@ -82,12 +80,7 @@ Config config;
 
 // ================= SENSOR TYPE =================
 
-enum SensorType {
-  SENSOR_NONE,
-  SENSOR_BME680,
-  SENSOR_BME280,
-  SENSOR_BMP_AHT
-};
+enum SensorType { SENSOR_NONE, SENSOR_BME680, SENSOR_BME280, SENSOR_BMP_AHT };
 
 SensorType activeSensor = SENSOR_NONE;
 
@@ -133,11 +126,10 @@ void detectSensor() {
       activeSensor = SENSOR_BME680;
 
       bsec.setConfig(bsec_config_iaq);
-      bsec.updateSubscription(
-        bsecVirtualSensorList,
-        sizeof(bsecVirtualSensorList) / sizeof(bsec_virtual_sensor_t),
-        BSEC_SAMPLE_RATE_LP
-      );
+      bsec.updateSubscription(bsecVirtualSensorList,
+                              sizeof(bsecVirtualSensorList) /
+                                  sizeof(bsec_virtual_sensor_t),
+                              BSEC_SAMPLE_RATE_LP);
 
       return;
     }
@@ -166,25 +158,37 @@ void readSensors() {
   if (activeSensor == SENSOR_BME680) {
     // I dati vengono aggiornati direttamente nel loop tramite bsec.run()
     // Qui estraiamo solo i valori aggiornati nelle variabili globali
-    const bsecOutputs* outputs = bsec.getOutputs();
+    const bsecOutputs *outputs = bsec.getOutputs();
     for (uint8_t i = 0; i < outputs->nOutputs; i++) {
       switch (outputs->output[i].sensor_id) {
-        case BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE: T = outputs->output[i].signal; break;
-        case BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY:    H = outputs->output[i].signal; break;
-        case BSEC_OUTPUT_RAW_PRESSURE:                       P = outputs->output[i].signal / 100.0; break;
-        case BSEC_OUTPUT_IAQ:                                IAQ = outputs->output[i].signal; break;
-        case BSEC_OUTPUT_CO2_EQUIVALENT:                     CO2 = outputs->output[i].signal; break;
-        case BSEC_OUTPUT_BREATH_VOC_EQUIVALENT:              VOC = outputs->output[i].signal; break;
-        case BSEC_OUTPUT_RAW_GAS:                            GAS = outputs->output[i].signal; break;
+      case BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE:
+        T = outputs->output[i].signal;
+        break;
+      case BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY:
+        H = outputs->output[i].signal;
+        break;
+      case BSEC_OUTPUT_RAW_PRESSURE:
+        P = outputs->output[i].signal / 100.0;
+        break;
+      case BSEC_OUTPUT_IAQ:
+        IAQ = outputs->output[i].signal;
+        break;
+      case BSEC_OUTPUT_CO2_EQUIVALENT:
+        CO2 = outputs->output[i].signal;
+        break;
+      case BSEC_OUTPUT_BREATH_VOC_EQUIVALENT:
+        VOC = outputs->output[i].signal;
+        break;
+      case BSEC_OUTPUT_RAW_GAS:
+        GAS = outputs->output[i].signal;
+        break;
       }
     }
-  } 
-  else if (activeSensor == SENSOR_BME280) {
+  } else if (activeSensor == SENSOR_BME280) {
     T = bme280.readTemperature();
     H = bme280.readHumidity();
     P = bme280.readPressure() / 100.0;
-  } 
-  else if (activeSensor == SENSOR_BMP_AHT) {
+  } else if (activeSensor == SENSOR_BMP_AHT) {
     T = bmp280.readTemperature();
     P = bmp280.readPressure() / 100.0;
     sensors_event_t humidity, temp;
@@ -202,7 +206,8 @@ void initLoRa() {
 
   if (!LoRa.begin(433775000)) {
     Serial.println("LoRa FAIL");
-    while (1);
+    while (1)
+      ;
   }
 
   // Parametri rete LoRa APRS OK2DDS
@@ -242,19 +247,11 @@ String buildAPRS() {
   int pressureInt = (int)(P * 10);
 
   sprintf(buffer,
-    "%s-%d>APZVDW:!%02d%05.2f%c/%03d%05.2f%c_%03d/%03dg%03dt%03d"
-    "h%02db%05d",
-    config.callsign.c_str(),
-    config.ssid,
-    latDeg, latMin, latDir,
-    lonDeg, lonMin, lonDir,
-    windDirInt,
-    windSpeedMph,
-    windGustMph,
-    tempFInt,
-    humidityInt,
-    pressureInt
-  );
+          "%s-%d>APZVDW:!%02d%05.2f%c/%03d%05.2f%c_%03d/%03dg%03dt%03d"
+          "h%02db%05d",
+          config.callsign.c_str(), config.ssid, latDeg, latMin, latDir, lonDeg,
+          lonMin, lonDir, windDirInt, windSpeedMph, windGustMph, tempFInt,
+          humidityInt, pressureInt);
 
   return String(buffer);
 }
@@ -272,13 +269,9 @@ String buildAPRSTelemetry() {
   int telA5 = constrain((int)(VBAT / 5.0 * 255.0), 0, 255); // Calibrato su 5V
 
   // Formato Telemetria Standard: T#SEQ,VAL1,VAL2,VAL3,VAL4,VAL5,DIGITAL
-  sprintf(buffer,
-    "%s-%d>APZVDW:T#%03u,%03d,%03d,%03d,%03d,%03d,00000000",
-    config.callsign.c_str(),
-    config.ssid,
-    aprsPacketCounter % 1000, 
-    telA1, telA2, telA3, telA4, telA5
-  );
+  sprintf(buffer, "%s-%d>APZVDW:T#%03u,%03d,%03d,%03d,%03d,%03d,00000000",
+          config.callsign.c_str(), config.ssid, aprsPacketCounter % 1000, telA1,
+          telA2, telA3, telA4, telA5);
 
   return String(buffer);
 }
@@ -297,33 +290,35 @@ void sendLoRaRaw(String payload) {
 
 void sendAPRSDefinitions() {
   char buffer[150];
-  // Il destinatario dei messaggi di configurazione deve essere il proprio callsign
-  // e il campo deve essere di 9 caratteri (standard APRS)
+  // Il destinatario dei messaggi di configurazione deve essere il proprio
+  // callsign e il campo deve essere di 9 caratteri (standard APRS)
   String destCall = config.callsign + "-" + String(config.ssid);
-  while(destCall.length() < 9) destCall += " "; 
+  while (destCall.length() < 9)
+    destCall += " ";
 
   // 1. Nomi dei parametri (PARM)
-  sprintf(buffer, "%s-%d>APZVDW::%-9s:PARM.IAQ,CO2,VOC,GAS,Batt", 
+  sprintf(buffer, "%s-%d>APZVDW::%-9s:PARM.IAQ,CO2,VOC,GAS,Batt",
           config.callsign.c_str(), config.ssid, destCall.c_str());
   sendLoRaRaw(String(buffer));
   delay(1000); // Pausa per non saturare il gateway
 
   // 2. Unità di misura (UNIT)
-  sprintf(buffer, "%s-%d>APZVDW::%-9s:UNIT.idx,ppm,mg/m,ohm,V", 
+  sprintf(buffer, "%s-%d>APZVDW::%-9s:UNIT.idx,ppm,mg/m,ohm,V",
           config.callsign.c_str(), config.ssid, destCall.c_str());
   sendLoRaRaw(String(buffer));
   delay(1000);
 
   // 3. Equazioni di conversione (EQNS)
   // Per la batteria (Param 5): Valore * 0.0196 = Volt
-  sprintf(buffer, "%s-%d>APZVDW::%-9s:EQNS.0,2,0,0,1,0,0,1,0,0,1,0,0,0.0196,0", 
+  sprintf(buffer, "%s-%d>APZVDW::%-9s:EQNS.0,2,0,0,1,0,0,1,0,0,1,0,0,0.0196,0",
           config.callsign.c_str(), config.ssid, destCall.c_str());
   sendLoRaRaw(String(buffer));
 }
 
 void sendAPRS() {
-  
-  if(!config.beaconEnabled) return;
+
+  if (!config.beaconEnabled)
+    return;
 
   aprsPacketCounter++;
 
@@ -346,7 +341,7 @@ void sendAPRS() {
   LoRa.endPacket();
 
   lastAprsTime = millis();
-  
+
   Serial.println("APRS: " + pkt);
 }
 
@@ -359,100 +354,97 @@ void initWeb() {
   });
 
   server.on("/api", HTTP_GET, [](AsyncWebServerRequest *r) {
+    JsonDocument doc;
 
-    DynamicJsonDocument doc(512);
-
-    doc["t"]=T;
-    doc["h"]=H;
-    doc["p"]=P;
-    doc["v"]=VBAT;
-    doc["iaq"]=IAQ;
-    doc["co2"]=CO2;
-    doc["voc"]=VOC;
-    doc["gas"]=GAS;
-    doc["windDir"]=windDir;
-    doc["windSpeed"]=windSpeed;
-    doc["windGust"]=windGust;
-    doc["rssi"]=LoRa.packetRssi();
-    doc["uptime"]=millis()/1000;
+    doc["t"] = T;
+    doc["h"] = H;
+    doc["p"] = P;
+    doc["v"] = VBAT;
+    doc["iaq"] = IAQ;
+    doc["co2"] = CO2;
+    doc["voc"] = VOC;
+    doc["gas"] = GAS;
+    doc["windDir"] = windDir;
+    doc["windSpeed"] = windSpeed;
+    doc["windGust"] = windGust;
+    doc["rssi"] = LoRa.packetRssi();
+    doc["uptime"] = millis() / 1000;
 
     String json;
-    serializeJson(doc,json);
+    serializeJson(doc, json);
 
-    r->send(200,"application/json",json);
+    r->send(200, "application/json", json);
   });
 
-server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request) {
+    JsonDocument doc;
 
-  DynamicJsonDocument doc(512);
+    doc["callsign"] = config.callsign;
+    doc["ssid"] = config.ssid;
+    doc["latitude"] = config.latitude;
+    doc["longitude"] = config.longitude;
+    doc["aprsIntervalMs"] = config.aprsIntervalMs;
+    doc["variationThreshold"] = config.variationThreshold;
+    doc["beaconEnabled"] = config.beaconEnabled;
+    doc["wifiSsid"] = config.wifiSsid;
+    doc["wifiPass"] = config.wifiPass;
+    doc["wifiTimeoutMs"] = config.wifiTimeoutMs;
+    doc["wifiAlwaysOn"] = config.wifiAlwaysOn;
 
-  doc["callsign"] = config.callsign;
-  doc["ssid"] = config.ssid;
-  doc["latitude"] = config.latitude;
-  doc["longitude"] = config.longitude;
-  doc["aprsIntervalMs"] = config.aprsIntervalMs;
-  doc["variationThreshold"] = config.variationThreshold;
-  doc["beaconEnabled"] = config.beaconEnabled;
-  doc["wifiSsid"] = config.wifiSsid;
-  doc["wifiPass"] = config.wifiPass;
-  doc["wifiTimeoutMs"] = config.wifiTimeoutMs;
-  doc["wifiAlwaysOn"] = config.wifiAlwaysOn;
+    String json;
+    serializeJson(doc, json);
 
-  String json;
-  serializeJson(doc, json);
+    request->send(200, "application/json", json);
+  });
 
-  request->send(200, "application/json", json);
-});
+  server.on(
+      "/config", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL,
+      [](AsyncWebServerRequest *request, uint8_t *data, size_t len,
+         size_t index, size_t total) {
+        JsonDocument doc;
+        DeserializationError err = deserializeJson(doc, data);
 
-server.on("/config", HTTP_POST,
-  [](AsyncWebServerRequest *request){},
-  NULL,
-  [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+        if (err) {
+          request->send(400, "text/plain", "JSON Error");
+          return;
+        }
 
-    DynamicJsonDocument doc(1024);
-    DeserializationError err = deserializeJson(doc, data);
+        config.callsign = doc["callsign"].as<String>();
+        config.ssid = doc["ssid"];
+        config.latitude = doc["latitude"];
+        config.longitude = doc["longitude"];
+        config.aprsIntervalMs = doc["aprsIntervalMs"];
+        config.variationThreshold = doc["variationThreshold"];
+        config.beaconEnabled = doc["beaconEnabled"];
+        config.wifiSsid = doc["wifiSsid"].as<String>();
+        config.wifiPass = doc["wifiPass"].as<String>();
+        config.wifiTimeoutMs = doc["wifiTimeoutMs"];
+        config.wifiAlwaysOn = doc["wifiAlwaysOn"];
 
-    if(err) {
-      request->send(400, "text/plain", "JSON Error");
-      return;
-    }
+        prefs.begin("config", false);
 
-    config.callsign = doc["callsign"].as<String>();
-    config.ssid = doc["ssid"];
-    config.latitude = doc["latitude"];
-    config.longitude = doc["longitude"];
-    config.aprsIntervalMs = doc["aprsIntervalMs"];
-    config.variationThreshold = doc["variationThreshold"];
-    config.beaconEnabled = doc["beaconEnabled"];
-    config.wifiSsid = doc["wifiSsid"].as<String>();
-    config.wifiPass = doc["wifiPass"].as<String>();
-    config.wifiTimeoutMs = doc["wifiTimeoutMs"];
-    config.wifiAlwaysOn = doc["wifiAlwaysOn"];
+        prefs.putString("callsign", config.callsign);
+        prefs.putInt("ssid", config.ssid);
+        prefs.putFloat("lat", config.latitude);
+        prefs.putFloat("lon", config.longitude);
+        prefs.putULong("aprsInt", config.aprsIntervalMs);
+        prefs.putFloat("varTh", config.variationThreshold);
+        prefs.putBool("beacon", config.beaconEnabled);
+        prefs.putString("wifiSsid", config.wifiSsid);
+        prefs.putString("wifiPass", config.wifiPass);
+        prefs.putULong("wifiTout", config.wifiTimeoutMs);
+        prefs.putBool("wifiAlways", config.wifiAlwaysOn);
 
-    prefs.begin("config", false);
+        prefs.end();
 
-    prefs.putString("callsign", config.callsign);
-    prefs.putInt("ssid", config.ssid);
-    prefs.putFloat("lat", config.latitude);
-    prefs.putFloat("lon", config.longitude);
-    prefs.putULong("aprsInt", config.aprsIntervalMs);
-    prefs.putFloat("varTh", config.variationThreshold);
-    prefs.putBool("beacon", config.beaconEnabled);
-    prefs.putString("wifiSsid", config.wifiSsid);
-    prefs.putString("wifiPass", config.wifiPass);
-    prefs.putULong("wifiTout", config.wifiTimeoutMs);
-    prefs.putBool("wifiAlways", config.wifiAlwaysOn);
+        request->send(200, "text/plain", "OK");
+      });
 
-    prefs.end();
-
-    request->send(200, "text/plain", "OK");
-});
-
-server.on("/reboot", HTTP_POST, [](AsyncWebServerRequest *request){
-  request->send(200, "text/plain", "Rebooting");
-  delay(500);
-  ESP.restart();
-});
+  server.on("/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", "Rebooting");
+    delay(500);
+    ESP.restart();
+  });
 
   server.begin();
 }
@@ -472,12 +464,12 @@ void startWiFi() {
 
   if (WiFi.status() == WL_CONNECTED) {
     initWeb();
-    wifiActive=true;
-    wifiStartTime=millis();
+    wifiActive = true;
+    wifiStartTime = millis();
     Serial.println("WiFi connected");
   } else {
     WiFi.mode(WIFI_OFF);
-    wifiActive=false;
+    wifiActive = false;
     Serial.println("WiFi failed");
   }
 }
@@ -496,13 +488,12 @@ void setup() {
 
   lastSensorTime = millis();
   lastAprsTime = millis() - config.aprsIntervalMs;
-  
+
   startWiFi();
-  
+
   // INVIO DEFINIZIONI (Una volta all'avvio)
   Serial.println("Invio definizioni telemetria...");
   sendAPRSDefinitions();
-  
 }
 
 // ================= MAIN LOOP =================
@@ -543,10 +534,10 @@ void loop() {
     // Calcoliamo quando deve avvenire il prossimo evento
     unsigned long nextSensorEvent = lastSensorTime + SENSOR_INTERVAL_MS;
     unsigned long nextAprsEvent = lastAprsTime + config.aprsIntervalMs;
-    
+
     // La scadenza più vicina tra sensori e radio
     unsigned long nextEvent = min(nextSensorEvent, nextAprsEvent);
-    
+
     long sleepTimeMs = nextEvent - millis();
 
     // Se mancano più di 2 secondi al prossimo evento, dormiamo
@@ -554,16 +545,16 @@ void loop() {
       Serial.print("Light Sleep per (ms): ");
       Serial.println(sleepTimeMs);
       Serial.flush(); // Svuota il buffer seriale prima di dormire
-      
+
       // Configura il risveglio tramite timer
       esp_sleep_enable_timer_wakeup(sleepTimeMs * 1000ULL); // microsecondi
       esp_light_sleep_start();
-      
+
       // Al risveglio il codice riparte da qui
       Serial.println("Sveglia!");
     }
   }
-  
+
   // Piccolo delay per stabilità del sistema (RTOS)
   delay(10);
 }

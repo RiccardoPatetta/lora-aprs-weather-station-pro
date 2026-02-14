@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef PROGMEM
+#define PROGMEM
+#endif
+
 const char pageIndex[] PROGMEM = R"====(
 <!doctype html>
 <html>
